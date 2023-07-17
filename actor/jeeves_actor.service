@@ -1,0 +1,12 @@
+[Unit]
+Description=Jeeves Host Side Actor
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/home/maint/docker-setup/jeeves/jeeves/actor
+ExecStart=/usr/bin/python main.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
