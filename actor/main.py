@@ -9,7 +9,7 @@ def handle_hook(path: str, payload: Any):
         if payload.get("ref", None) != "refs/heads/main":
             return
         subprocess.run(
-            ["git", "pull"],
+            ["runuser", "-u", "maint", "--", "git", "pull"],
             cwd="/home/maint/docker-setup/codenames/codenames/codenames",
             check=True,
         )
