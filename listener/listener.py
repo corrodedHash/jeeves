@@ -44,10 +44,8 @@ def hello_world(webhook: str):
     if content is None:
         raise werkzeug.exceptions.UnsupportedMediaType("Content body not json")
     verify_signature(
-        request.get_data(), webhook, request.headers["x-hub-signature-256"]
+        request.get_data(), webhook, request.headers.get("x-hub-signature-256", None)
     )
     with open(COMMUNICATION_PATH, "w", encoding="utf-8") as commfile:
-        commfile.write(
-            json.dumps({"hook": webhook, "source": "GITHUB", "content": content})
-        )
+        json.dump({"hook": webhook, "source": "GITHUB", "content": content}, commfile)
     return "Done", 200
