@@ -14,7 +14,7 @@ def handle_hook(path: str, payload: Any):
             check=True,
         )
         subprocess.run(
-            "docker compose up --build -d",
+            ["docker", "compose", "up", "--build", "-d"],
             cwd="/home/maint/docker-setup/codenames/codenames/codenames",
             check=True,
         )
