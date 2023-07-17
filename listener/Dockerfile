@@ -1,5 +1,6 @@
 # FROM python:3.11-alpine
-FROM python:3.11
+# FROM python:3.11
+FROM python:3.11-slim
 
 ADD listener.py /workspace/listener.py
 WORKDIR /workspace
