@@ -9,5 +9,5 @@ ADD listener.py /workspace/listener.py
 
 EXPOSE 8000/tcp
 
-CMD ["uvicorn", "--interface", "wsgi", "--host", "0.0.0.0", "listener:app"]
+CMD ["uvicorn", "--interface", "wsgi", "--host", "0.0.0.0", "--port", "8000", "listener:app"]
 
