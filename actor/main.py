@@ -2,7 +2,7 @@ import argparse
 import json
 from typing import Any
 import subprocess
-
+import sys
 from pathlib import Path
 
 
@@ -21,25 +21,53 @@ def handle_codenames(payload: Any) -> None:
     )
 
 
+def handle_apps(payload: Any) -> None:
+    for x in Path("/home/maint/docker-setup/apps/apps-docker/apps-auto").iterdir():
+        if not x.is_dir():
+            return
+        print(x, x.absolute())
+        subprocess.run(
+            ["runuser", "-u", "maint", "--", "git", "pull"],
+            cwd=str(x),
+            check=True,
+        )
+    subprocess.run(
+        ["docker", "compose", "up", "--build", "-d"],
+        cwd="/home/maint/docker-setup/apps",
+        check=True,
+    )
+
+
+def handle_jeeves(payload: Any) -> None:
+    subprocess.run(
+        ["runuser", "-u", "maint", "--", "git", "pull"],
+        cwd="/home/maint/docker-setup/jeeves/jeeves",
+        check=True,
+    )
+    subprocess.run(
+        [
+            "cp",
+            "jeeves/actor/jeeves_actor.service",
+            "/etc/systemd/system/jeeves_actor.service",
+        ],
+        cwd="/home/maint/docker-setup/jeeves/",
+        check=True,
+    )
+    subprocess.run(
+        ["systemctl", "restart", "jeeves_actor"],
+        check=True,
+    )
+
+
 def handle_hook(path: str, payload: Any) -> None:
     if path == "codenames":
         handle_codenames(payload)
-        return
-    if path.startswith("apps-"):
-        for x in Path("/home/maint/docker-setup/apps/apps-docker/apps-auto").iterdir():
-            if not x.is_dir():
-                return
-            print(x, x.absolute())
-            subprocess.run(
-                ["runuser", "-u", "maint", "--", "git", "pull"],
-                cwd=str(x),
-                check=True,
-            )
-        subprocess.run(
-            ["docker", "compose", "up", "--build", "-d"],
-            cwd="/home/maint/docker-setup/apps",
-            check=True,
-        )
+    elif path.startswith("apps-"):
+        handle_apps(payload)
+    elif path == "jeeves":
+        handle_jeeves(payload)
+    else:
+        print(f"Unknown path: {path}", file=sys.stderr)
 
 
 def loop(path: str) -> None:
