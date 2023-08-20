@@ -57,6 +57,10 @@ def handle_jeeves(payload: Any) -> None:
         ["systemctl", "restart", "jeeves_actor"],
         check=True,
     )
+    subprocess.run(
+        ["systemctl", "daemon-reload"],
+        check=True,
+    )
 
 
 def handle_hook(path: str, payload: Any) -> None:
