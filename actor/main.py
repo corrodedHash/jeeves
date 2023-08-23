@@ -35,7 +35,7 @@ def handle_apps(_payload: Any) -> None:
     for x in Path("/home/maint/docker-setup/apps/apps-docker/apps-auto").iterdir():
         if not x.is_dir():
             return
-        function_logger.debug("Updating app %s at %s", str(x), str(x.absolute()))
+        function_logger.info("Updating app %s at %s", str(x), str(x.absolute()))
         subprocess.run(
             ["runuser", "-u", "maint", "--", "git", "pull"],
             cwd=str(x),
