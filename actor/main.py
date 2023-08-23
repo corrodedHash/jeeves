@@ -32,13 +32,15 @@ def handle_codenames(payload: Any) -> None:
 def handle_apps(_payload: Any) -> None:
     """Handle updates for repositories hosted on apps.thasky.one"""
     function_logger = MODULE_LOGGER.getChild("apps")
-    for x in Path("/home/maint/docker-setup/apps/apps-docker/apps-auto").iterdir():
-        if not x.is_dir():
-            return
-        function_logger.info("Updating app %s at %s", str(x), str(x.absolute()))
+    download_dir = Path("/home/maint/docker-setup/apps/apps-docker/apps-auto")
+    relevant_dirs = [x for x in download_dir.iterdir() if x.is_dir()]
+    for app_dir in relevant_dirs:
+        function_logger.info(
+            "Updating app %s at %s", str(app_dir), str(app_dir.absolute())
+        )
         subprocess.run(
             ["runuser", "-u", "maint", "--", "git", "pull"],
-            cwd=str(x),
+            cwd=str(app_dir),
             check=True,
         )
     subprocess.run(
