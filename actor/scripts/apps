@@ -1,0 +1,23 @@
+#!/bin/python3
+import subprocess
+from pathlib import Path
+
+
+def main():
+    download_dir = Path("/home/maint/docker-setup/apps/apps-docker/apps-auto")
+    relevant_dirs = [x for x in download_dir.iterdir() if x.is_dir()]
+    for app_dir in relevant_dirs:
+        print("Updating app %s at %s" % (str(app_dir), str(app_dir.absolute())))
+        subprocess.run(
+            ["runuser", "-u", "maint", "--", "git", "pull"],
+            cwd=str(app_dir),
+            check=True,
+        )
+    subprocess.run(
+        ["docker", "compose", "up", "--build", "-d"],
+        cwd="/home/maint/docker-setup/apps",
+        check=True,
+    )
+
+if __name__ == "__main__":
+    main()

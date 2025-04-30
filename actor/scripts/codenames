@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+cd /home/maint/docker-setup/codenames
+(
+    cd codenames/codenames
+    runuser -u maint -- git pull
+)
+docker compose up --build -d

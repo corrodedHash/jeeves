@@ -1,6 +1,10 @@
 import hashlib
 import hmac
 import json
+import datetime
+import random
+import string
+from pathlib import Path
 
 import werkzeug.exceptions
 from flask import Flask, request
@@ -11,7 +15,7 @@ COMMUNICATION_PATH = "/comm/fifo"
 GITHUB_SECRET_PATH = "/comm/github_secrets.json"
 
 
-def verify_signature(payload_body: bytes, hookname: str, signature_header: str | None):
+def verify_github_signature(payload_body: bytes, hookname: str, signature_header: str | None):
     """Verify that the payload was sent from GitHub by validating SHA256.
 
     Raise and return 403 if not authorized.
@@ -25,7 +29,7 @@ def verify_signature(payload_body: bytes, hookname: str, signature_header: str |
     with open(GITHUB_SECRET_PATH, "r", encoding="utf-8") as secretfile:
         secrets = json.load(secretfile)
         if hookname not in secrets:
-            return
+            raise werkzeug.exceptions.Forbidden("Unknown webhook")
         secret_token = secrets[hookname]
 
     if not signature_header:
@@ -38,14 +42,23 @@ def verify_signature(payload_body: bytes, hookname: str, signature_header: str |
         raise werkzeug.exceptions.Forbidden("Request signatures didn't match!")
 
 
+def generate_random_id(length=5):
+    """Generate a random ID of specified length."""
+    return "".join(random.choices(string.ascii_letters + string.digits, k=length))
+
+
 @app.route("/github/<webhook>", methods=["POST"])
 def hello_world(webhook: str):
-    content = request.json
+    content = request.data
     if content is None:
         raise werkzeug.exceptions.UnsupportedMediaType("Content body not json")
-    verify_signature(
+    verify_github_signature(
         request.get_data(), webhook, request.headers.get("x-hub-signature-256", None)
     )
-    with open(COMMUNICATION_PATH, "w", encoding="utf-8") as commfile:
-        json.dump({"hook": webhook, "source": "GITHUB", "content": content}, commfile)
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_name = (
+        Path(COMMUNICATION_PATH) / f"{webhook}-{timestamp}-{generate_random_id(7)}"
+    )
+    with open(output_name, "wb") as commfile:
+        commfile.write(content)
     return "Done", 200

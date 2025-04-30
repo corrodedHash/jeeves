@@ -1,126 +1,52 @@
-"""Main function for jeeves actor"""
-
-import argparse
-import json
-from typing import Any
 import subprocess
-import sys
-from pathlib import Path
 import logging
+from pathlib import Path
 
 MODULE_LOGGER = logging.getLogger("jeeves")
 
-MODULE_LOGGER.setLevel(logging.DEBUG)
+
+def handle_file_creation(filename: Path, script_dir: Path):
+    MODULE_LOGGER.info("Received event [%s]", filename.stem)
+    n = filename.stem
+
+    chosen_scriptname = None
+    if n.startswith("codenames-"):
+        chosen_scriptname = "codenames"
+    elif n.startswith("apps-"):
+        chosen_scriptname = "apps"
+    elif n.startswith("jeeves-"):
+        chosen_scriptname = "jeeves"
+    else:
+        MODULE_LOGGER.warning("Unknown handle: %s", n)
+        raise RuntimeError("Unknown handle")
+
+    subprocess.run([script_dir / chosen_scriptname, filename], check=True)
 
 
-def handle_codenames(payload: Any) -> None:
-    """Handle updates from codenames repository"""
-    if payload.get("ref", None) != "refs/heads/main":
-        return
-    subprocess.run(
-        ["runuser", "-u", "maint", "--", "git", "pull"],
-        cwd="/home/maint/docker-setup/codenames/codenames/codenames",
-        check=True,
-    )
-    subprocess.run(
-        ["docker", "compose", "up", "--build", "-d"],
-        cwd="/home/maint/docker-setup/codenames/",
-        check=True,
-    )
-
-
-def handle_apps(_payload: Any) -> None:
-    """Handle updates for repositories hosted on apps.thasky.one"""
-    function_logger = MODULE_LOGGER.getChild("apps")
-    download_dir = Path("/home/maint/docker-setup/apps/apps-docker/apps-auto")
-    relevant_dirs = [x for x in download_dir.iterdir() if x.is_dir()]
-    for app_dir in relevant_dirs:
-        function_logger.info(
-            "Updating app %s at %s", str(app_dir), str(app_dir.absolute())
-        )
+def main():
+    directory_to_watch = Path("/path/to/your/directory")
+    script_dir = Path("scripts/")
+    while True:
         subprocess.run(
-            ["runuser", "-u", "maint", "--", "git", "pull"],
-            cwd=str(app_dir),
+            [
+                "inotifywait",
+                "-e",
+                "create",
+                directory_to_watch,
+            ],
             check=True,
         )
-    subprocess.run(
-        ["docker", "compose", "up", "--build", "-d"],
-        cwd="/home/maint/docker-setup/apps",
-        check=True,
-    )
 
-
-def handle_jeeves(_payload: Any) -> None:
-    """Handle updates for jeeves itself"""
-    subprocess.run(
-        ["runuser", "-u", "maint", "--", "git", "pull"],
-        cwd="/home/maint/docker-setup/jeeves/jeeves",
-        check=True,
-    )
-    subprocess.run(
-        [
-            "cp",
-            "jeeves/actor/jeeves_actor.service",
-            "/etc/systemd/system/jeeves_actor.service",
-        ],
-        cwd="/home/maint/docker-setup/jeeves/",
-        check=True,
-    )
-    subprocess.run(
-        ["systemctl", "restart", "jeeves_actor"],
-        check=True,
-    )
-    subprocess.run(
-        ["systemctl", "daemon-reload"],
-        check=True,
-    )
-
-
-def handle_hook(path: str, payload: Any) -> None:
-    """Manage hooks"""
-    MODULE_LOGGER.info("Received event from %s", path)
-    if path == "codenames":
-        handle_codenames(payload)
-    elif path.startswith("apps-"):
-        handle_apps(payload)
-    elif path == "jeeves":
-        handle_jeeves(payload)
-    else:
-        MODULE_LOGGER.warning("Unknown path: %s", path)
-
-
-def loop(path: str) -> None:
-    """Receive events"""
-    MODULE_LOGGER.info("Starting loop")
-
-    while True:
-        with open(path, "r", encoding="utf-8") as commfile:
-            request = json.loads(commfile.read())
-            hookname = request["hook"]
-            hookcontent = request["content"]
-            MODULE_LOGGER.info("Handling hook '%s'", hookname)
-            handle_hook(hookname, hookcontent)
-
-
-def main() -> None:
-    """Main function"""
-    parser = argparse.ArgumentParser(
-        prog="Actor",
-        description="Actor receiving commands over a fifo pipe",
-    )
-    parser.add_argument("--commfile", "-c", required=True)
-
-    args = parser.parse_args()
-    loop(args.commfile)
+        for f in directory_to_watch.iterdir():
+            if not f.is_file():
+                continue
+            try:
+                handle_file_creation(f, script_dir)
+            except:
+                pass
+            finally:
+                f.unlink()
 
 
 if __name__ == "__main__":
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setLevel(logging.DEBUG)
-    formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
-    handler.setFormatter(formatter)
-    logging.getLogger().addHandler(handler)
-    logging.getLogger().setLevel(logging.DEBUG)
     main()
