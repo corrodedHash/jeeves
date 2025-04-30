@@ -52,14 +52,14 @@ def generate_random_id(length=5):
 
 @app.route("/github/<webhook>", methods=["POST"])
 def github_hook(webhook: str):
-    content = request.data
+    content = request.get_data()
     if content is None:
         raise werkzeug.exceptions.UnsupportedMediaType("Content body not json")
 
     with open(SECRET_PATH, "r", encoding="utf-8") as secretfile:
         secrets = json.load(secretfile)
     verify_github_signature(
-        request.get_data(),
+        content,
         secrets,
         webhook,
         request.headers.get("x-hub-signature-256", None),
@@ -73,11 +73,14 @@ def github_hook(webhook: str):
 
 @app.route("/skygitea/<webhook>", methods=["POST"])
 def skygitea_hook(webhook: str):
+    content = request.get_data()
+    if content is None:
+        raise werkzeug.exceptions.UnsupportedMediaType("Content body not json")
 
     with open(SECRET_PATH, "r", encoding="utf-8") as secretfile:
         secrets = json.load(secretfile)
     verify_github_signature(
-        request.get_data(),
+        content,
         secrets,
         webhook,
         request.headers.get("x-hub-signature-256", None),
