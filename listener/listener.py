@@ -12,11 +12,14 @@ from flask import Flask, request
 app = Flask(__name__)
 
 COMMUNICATION_PATH = Path("/comm/payloads/")
-GITHUB_SECRET_PATH = Path("/comm") / "github_secrets.json"
+SECRET_PATH = Path("/comm") / "secrets.json"
 
 
 def verify_github_signature(
-    payload_body: bytes, hookname: str, signature_header: str | None
+    payload_body: bytes,
+    secrets: dict[str, str],
+    hookname: str,
+    signature_header: str | None,
 ):
     """Verify that the payload was sent from GitHub by validating SHA256.
 
@@ -28,11 +31,9 @@ def verify_github_signature(
         signature_header: header received from GitHub (x-hub-signature-256)
     """
 
-    with open(GITHUB_SECRET_PATH, "r", encoding="utf-8") as secretfile:
-        secrets = json.load(secretfile)
-        if hookname not in secrets:
-            raise werkzeug.exceptions.Forbidden("Unknown webhook")
-        secret_token = secrets[hookname]
+    if hookname not in secrets:
+        raise werkzeug.exceptions.Forbidden("Unknown webhook")
+    secret_token = secrets[hookname]
 
     if not signature_header:
         raise werkzeug.exceptions.Forbidden("x-hub-signature-256 header is missing!")
@@ -54,8 +55,14 @@ def github_hook(webhook: str):
     content = request.data
     if content is None:
         raise werkzeug.exceptions.UnsupportedMediaType("Content body not json")
+
+    with open(SECRET_PATH, "r", encoding="utf-8") as secretfile:
+        secrets = json.load(secretfile)
     verify_github_signature(
-        request.get_data(), webhook, request.headers.get("x-hub-signature-256", None)
+        request.get_data(),
+        secrets,
+        webhook,
+        request.headers.get("x-hub-signature-256", None),
     )
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     output_name = COMMUNICATION_PATH / f"{webhook}-{timestamp}-{generate_random_id(7)}"
@@ -66,7 +73,17 @@ def github_hook(webhook: str):
 
 @app.route("/skygitea/<webhook>", methods=["POST"])
 def skygitea_hook(webhook: str):
-    print(request.data)
-    print(request.headers)
-    print(webhook)
+
+    with open(SECRET_PATH, "r", encoding="utf-8") as secretfile:
+        secrets = json.load(secretfile)
+    verify_github_signature(
+        request.get_data(),
+        secrets,
+        webhook,
+        request.headers.get("x-hub-signature-256", None),
+    )
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_name = COMMUNICATION_PATH / f"{webhook}-{timestamp}-{generate_random_id(7)}"
+    with open(output_name, "wb+") as commfile:
+        commfile.write(content)
     return "Done", 200
