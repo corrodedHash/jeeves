@@ -2,6 +2,6 @@
 
 cd /home/maint/docker-setup/jeeves/jeeves
 runuser -u maint -- git pull
-cp actor/jeeves_actor.service /etc/systemd/systemd/jeeves_actor.service
+cp actor/jeeves_actor.service /etc/systemd/system/jeeves_actor.service
 systemctl restart jeeves_actor
 systemctl daemon-reload
