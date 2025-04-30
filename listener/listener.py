@@ -50,7 +50,7 @@ def generate_random_id(length=5):
 
 
 @app.route("/github/<webhook>", methods=["POST"])
-def hello_world(webhook: str):
+def github_hook(webhook: str):
     content = request.data
     if content is None:
         raise werkzeug.exceptions.UnsupportedMediaType("Content body not json")
@@ -65,7 +65,7 @@ def hello_world(webhook: str):
 
 
 @app.route("/skygitea/<webhook>", methods=["POST"])
-def hello_world(webhook: str):
+def skygitea_hook(webhook: str):
     print(request.data)
     print(request.headers)
     print(webhook)
