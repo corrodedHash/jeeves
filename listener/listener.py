@@ -59,6 +59,6 @@ def hello_world(webhook: str):
     )
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     output_name = COMMUNICATION_PATH / f"{webhook}-{timestamp}-{generate_random_id(7)}"
-    with open(output_name, "wb") as commfile:
+    with open(output_name, "wb+") as commfile:
         commfile.write(content)
     return "Done", 200
