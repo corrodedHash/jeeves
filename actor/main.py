@@ -29,15 +29,14 @@ def main():
         description="Run scripts when payloads are received"
     )
 
-    # Add the --watchfile argument
     parser.add_argument(
-        "--watchfile", type=str, required=True, help="Path to the file to watch."
+        "--watchdir", type=str, required=True, help="Path to the file to watch."
     )
 
     # Parse the arguments
     args = parser.parse_args()
 
-    directory_to_watch = Path(args.watchfile)
+    directory_to_watch = Path(args.watchdir)
     script_dir = Path("scripts/")
     while True:
         subprocess.run(
