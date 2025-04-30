@@ -56,8 +56,8 @@ def main():
                 continue
             try:
                 handle_file_creation(f, script_dir)
-            except:
-                pass
+            except Exception:
+                MODULE_LOGGER.error("An error occurred", exc_info=True)
             finally:
                 f.unlink()
 
