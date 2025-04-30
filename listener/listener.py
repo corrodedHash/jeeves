@@ -62,3 +62,11 @@ def hello_world(webhook: str):
     with open(output_name, "wb+") as commfile:
         commfile.write(content)
     return "Done", 200
+
+
+@app.route("/skygitea/<webhook>", methods=["POST"])
+def hello_world(webhook: str):
+    print(request.data)
+    print(request.headers)
+    print(webhook)
+    return "Done", 200
