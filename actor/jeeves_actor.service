@@ -5,7 +5,7 @@ After=network.target
 [Service]
 User=root
 WorkingDirectory=/home/maint/docker-setup/jeeves/jeeves/actor
-ExecStart=/usr/bin/python3 main.py --commfile /home/maint/docker-setup/jeeves/comm/fifo
+ExecStart=/usr/bin/python3 main.py --watchdir /home/maint/docker-setup/jeeves/comm/payloads/
 Restart=always
 
 [Install]

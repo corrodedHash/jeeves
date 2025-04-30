@@ -1,6 +1,7 @@
 import subprocess
 import logging
 from pathlib import Path
+import argparse
 
 MODULE_LOGGER = logging.getLogger("jeeves")
 
@@ -24,7 +25,19 @@ def handle_file_creation(filename: Path, script_dir: Path):
 
 
 def main():
-    directory_to_watch = Path("/path/to/your/directory")
+    parser = argparse.ArgumentParser(
+        description="Run scripts when payloads are received"
+    )
+
+    # Add the --watchfile argument
+    parser.add_argument(
+        "--watchfile", type=str, required=True, help="Path to the file to watch."
+    )
+
+    # Parse the arguments
+    args = parser.parse_args()
+
+    directory_to_watch = Path(args.watchfile)
     script_dir = Path("scripts/")
     while True:
         subprocess.run(

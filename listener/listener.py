@@ -11,11 +11,13 @@ from flask import Flask, request
 
 app = Flask(__name__)
 
-COMMUNICATION_PATH = "/comm/fifo"
-GITHUB_SECRET_PATH = "/comm/github_secrets.json"
+COMMUNICATION_PATH = Path("/comm/payloads/")
+GITHUB_SECRET_PATH = Path("/comm") / "github_secrets.json"
 
 
-def verify_github_signature(payload_body: bytes, hookname: str, signature_header: str | None):
+def verify_github_signature(
+    payload_body: bytes, hookname: str, signature_header: str | None
+):
     """Verify that the payload was sent from GitHub by validating SHA256.
 
     Raise and return 403 if not authorized.
@@ -56,9 +58,7 @@ def hello_world(webhook: str):
         request.get_data(), webhook, request.headers.get("x-hub-signature-256", None)
     )
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_name = (
-        Path(COMMUNICATION_PATH) / f"{webhook}-{timestamp}-{generate_random_id(7)}"
-    )
+    output_name = COMMUNICATION_PATH / f"{webhook}-{timestamp}-{generate_random_id(7)}"
     with open(output_name, "wb") as commfile:
         commfile.write(content)
     return "Done", 200
