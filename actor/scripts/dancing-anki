@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+cd /home/maint/docker-setup/danceanki
+(
+    cd danceanki
+    runuser -u maint -- sh deploy.sh
+)
+docker compose up --build -d

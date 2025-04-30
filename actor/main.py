@@ -10,18 +10,20 @@ def handle_file_creation(filename: Path, script_dir: Path):
     MODULE_LOGGER.info("Received event [%s]", filename.stem)
     n = filename.stem
 
-    chosen_scriptname = None
-    if n.startswith("codenames-"):
-        chosen_scriptname = "codenames"
-    elif n.startswith("apps-"):
-        chosen_scriptname = "apps"
-    elif n.startswith("jeeves-"):
-        chosen_scriptname = "jeeves"
+    scripts = sorted(
+        [x for x in script_dir.iterdir() if x.is_file()],
+        key=lambda x: len(x.stem),
+        reverse=True,
+    )
+    for s in scripts:
+        if n.startswith(s.stem):
+            chosen_script = s
+            break
     else:
         MODULE_LOGGER.warning("Unknown handle: %s", n)
         raise RuntimeError("Unknown handle")
 
-    subprocess.run([script_dir / chosen_scriptname, filename], check=True)
+    subprocess.run([chosen_script, filename], check=True)
 
 
 def main():
