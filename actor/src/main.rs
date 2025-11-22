@@ -1,15 +1,17 @@
 #![warn(clippy::unwrap_used, clippy::expect_used)]
+use anyhow::bail;
 use futures_lite::StreamExt as _;
 use lapin::{Connection, ConnectionProperties, options::*, types::FieldTable};
 use sentry::{init as sentry_init, types::Dsn};
-use sentry_anyhow::capture_anyhow;
 use serde_json::Value;
+use std::path::Path;
 use std::process::Command;
 use std::str;
 use std::{fs, str::FromStr};
-use tracing::{Level, error, info, instrument, warn};
-use tracing_subscriber::registry::LookupSpan;
-use tracing_subscriber::{EnvFilter, fmt, prelude::*};
+use tracing::{Level, event, info, instrument};
+use tracing_subscriber::Layer as _;
+use tracing_subscriber::layer::SubscriberExt as _;
+use tracing_subscriber::util::SubscriberInitExt as _;
 
 fn load_sentry_dsn_from_file(path: &str) -> anyhow::Result<String> {
     let dsn = fs::read_to_string(path)?.trim().to_string();
@@ -25,11 +27,13 @@ struct Cmd {
     /// URL to the Rabbit MQ broker
     #[argh(option, default = "String::from(\"amqp://127.0.0.1:5672\")")]
     rmq_addr: String,
+
+    /// path of the scripts that will be executed
+    #[argh(option)]
+    script_dir: Option<std::path::PathBuf>,
 }
 
 fn main() -> anyhow::Result<()> {
-    let cmd: Cmd = argh::from_env();
-
     let stdout_layer = tracing_subscriber::fmt::layer().with_filter(
         tracing_subscriber::EnvFilter::builder()
             .with_default_directive(tracing::level_filters::LevelFilter::INFO.into())
@@ -67,13 +71,20 @@ fn main() -> anyhow::Result<()> {
         ..Default::default()
     });
 
+    let cmd: Cmd = argh::from_env();
+
+    let script_dir = cmd
+        .script_dir
+        .unwrap_or(std::env::current_dir()?)
+        .canonicalize()?;
+
     let rt = tokio::runtime::Runtime::new()?;
-    rt.block_on(async_main(&cmd.rmq_addr))?;
+    rt.block_on(async_main(&cmd.rmq_addr, &script_dir))?;
 
     Ok(())
 }
 
-async fn async_main(rabbitmq_addr: &str) -> anyhow::Result<()> {
+async fn async_main(rabbitmq_addr: &str, script_dir: &Path) -> anyhow::Result<()> {
     info!("Starting RabbitMQ consumer...");
 
     let connection = Connection::connect(rabbitmq_addr, ConnectionProperties::default()).await?;
@@ -125,21 +136,32 @@ async fn async_main(rabbitmq_addr: &str) -> anyhow::Result<()> {
     while let Some(delivery) = consumer.next().await {
         let delivery = delivery?;
         let body = str::from_utf8(&delivery.data)?;
-        match handle_message(body).await {
-            Ok(_) => {
+        let project = match get_project_from_message(body).await {
+            Ok(project) => {
                 info!("handled");
                 delivery.ack(BasicAckOptions::default()).await?;
+                project
             }
             Err(e) => {
-                error!("Error handling message: {:?}", e);
-                capture_anyhow(&e);
+                event!(Level::ERROR, "parsing message {e}");
                 delivery
                     .nack(BasicNackOptions {
                         multiple: false,
                         requeue: false,
                     })
                     .await?;
+                continue;
             }
+        };
+        if let Err(e) = run_script(script_dir, &project) {
+            event!(Level::ERROR, "running script {e}");
+            delivery
+                .nack(BasicNackOptions {
+                    multiple: false,
+                    requeue: false,
+                })
+                .await?;
+            continue;
         }
     }
 
@@ -147,7 +169,7 @@ async fn async_main(rabbitmq_addr: &str) -> anyhow::Result<()> {
 }
 
 #[instrument]
-async fn handle_message(body: &str) -> anyhow::Result<()> {
+async fn get_project_from_message(body: &str) -> anyhow::Result<String> {
     info!("Processing message: {}", body);
     let data: Value = serde_json::from_str(body)?;
     let project = data
@@ -156,21 +178,23 @@ async fn handle_message(body: &str) -> anyhow::Result<()> {
         .ok_or(anyhow::anyhow!("No 'project' tag found in the message."))?;
 
     info!("Received project: {}", project);
-
-    // Run the command "abc" in the project directory
-    run_command_in_directory(project, "abc")?;
-
-    Ok(())
+    Ok(project.to_string())
 }
 
 #[instrument]
-fn run_command_in_directory(directory: &str, command: &str) -> anyhow::Result<()> {
-    info!("Running command '{}' in directory '{}'", command, directory);
-    let output = Command::new("sh")
-        .arg("-c")
-        .arg(command)
-        .current_dir(directory)
-        .output()?;
+fn run_script(directory: &Path, script: &str) -> anyhow::Result<()> {
+    info!(
+        "Running script '{}' in directory '{}'",
+        script,
+        directory.display()
+    );
+
+    let full_path = directory.join(script);
+    if !matches!(full_path.parent(), Some(p) if p == directory) {
+        bail!("Script had some relative path {}", script);
+    }
+    info!("{}", full_path.display());
+    let output = Command::new(full_path).current_dir(directory).output()?;
 
     if !output.status.success() {
         let error = String::from_utf8_lossy(&output.stderr);
