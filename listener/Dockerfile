@@ -1,13 +1,21 @@
-# FROM python:3.11-alpine
-# FROM python:3.11
-FROM python:3-slim
+# Use the official Debian base image
+FROM debian:latest
 
-WORKDIR /workspace
-RUN pip install Flask "uvicorn[standard]"
+# Set the working directory
+WORKDIR /tmp
 
-ADD listener.py /workspace/listener.py
+# Install required tools (curl, tar, gzip)
+RUN apt-get update && \
+    apt-get install -y webhook curl && \
+    rm -rf /var/lib/apt/lists/*
 
-EXPOSE 8000/tcp
+RUN curl -L https://github.com/streamdal/plumber/releases/download/v2.9.0/plumber-linux --output /bin/plumber && chmod u+x /bin/plumber
 
-CMD ["uvicorn", "--interface", "wsgi", "--host", "0.0.0.0", "--port", "8000", "listener:app"]
+# Create the hooks.json file (empty or with default content)
+RUN touch /hooks.json
 
+# Expose port 9000
+EXPOSE 9000
+
+# Run webhook with the specified hooks file
+CMD ["webhook", "-urlprefix", "", "-hooks", "/hooks.json", "-verbose", "-port", "9000"]
