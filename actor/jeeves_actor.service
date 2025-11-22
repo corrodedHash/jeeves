@@ -5,7 +5,7 @@ After=network.target
 [Service]
 User=root
 WorkingDirectory=/home/maint/docker-setup/jeeves/jeeves/actor
-ExecStart=./actor --rmq-addr localhost:55512
+ExecStart=/home/maint/docker-setup/jeeves/jeeves/actor/actor --rmq-addr amqp://localhost:55512 --script-dir /home/maint/docker-setup/jeeves/scripts
 Restart=always
 
 [Install]

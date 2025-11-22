@@ -7,7 +7,7 @@ edition = "2024"
 lapin = { version = "3.7.2", features = ["rustls"] }
 tokio = { version = "1.0", features = ["full"] }
 serde_json = "1.0"
-sentry = { version = "0.45", features = ["anyhow", "tracing"] }
+sentry = { version = "0.45", features = ["backtrace", "contexts", "debug-images", "httpdate", "panic", "rustls", "sentry-backtrace", "sentry-panic", "sentry-tracing", "tokio", "tracing", "reqwest"], default-features = false }
 anyhow = "1.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
