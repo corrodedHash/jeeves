@@ -10,7 +10,7 @@ RUN curl -L https://github.com/streamdal/plumber/releases/download/v2.9.0/plumbe
 
 RUN touch /hooks.json
 
-COPY --chown root:root --chmod 500 plumber.sh /plumber.sh
+COPY --chown=root:root --chmod=500 plumber.sh /plumber.sh
 
 EXPOSE 9000
 
