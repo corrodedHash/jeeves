@@ -5,7 +5,7 @@ After=network.target
 [Service]
 User=root
 WorkingDirectory=/home/maint/docker-setup/jeeves/jeeves/actor
-ExecStart=./listener --rmq-addr localhost:55512
+ExecStart=./actor --rmq-addr localhost:55512
 Restart=always
 
 [Install]
