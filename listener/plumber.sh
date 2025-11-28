@@ -1,2 +1,2 @@
 #! /bin/sh
-plumber write rabbit --address="amqp://rabbitmq" --routing-key=webhooks --input="{ \"project\": \"$1\"}" --exchange-name="jeeves"
+redis-cli -h redis LPUSH job_queue "{ \"project\": \"$1\"}"
