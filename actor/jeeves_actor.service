@@ -5,7 +5,7 @@ After=network.target
 [Service]
 User=root
 WorkingDirectory=/home/maint/docker-setup/jeeves
-ExecStart=/home/maint/docker-setup/jeeves/jeeves/actor/actor --rmq-addr redis://localhost:55512 --script-dir /home/maint/docker-setup/jeeves/scripts
+ExecStart=/home/maint/docker-setup/jeeves/jeeves/actor/actor --redis-addr redis://localhost:55512 --script-dir /home/maint/docker-setup/jeeves/scripts
 Restart=always
 RestartSec=30
 
