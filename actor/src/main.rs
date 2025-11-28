@@ -1,7 +1,6 @@
 #![warn(clippy::unwrap_used, clippy::expect_used)]
+#![warn(clippy::print_stdout, clippy::print_stderr)]
 use anyhow::bail;
-use futures_lite::StreamExt as _;
-use lapin::{Connection, ConnectionProperties, options::*, types::FieldTable};
 use sentry::{init as sentry_init, types::Dsn};
 use serde_json::Value;
 use std::path::Path;
@@ -24,9 +23,9 @@ fn load_sentry_dsn_from_file(path: &str) -> anyhow::Result<String> {
 #[derive(argh::FromArgs)]
 /// React to events happening in a rabbitmq queue
 struct Cmd {
-    /// URL to the Rabbit MQ broker
-    #[argh(option, default = "String::from(\"amqp://127.0.0.1:5672\")")]
-    rmq_addr: String,
+    /// URL to the Redis Server
+    #[argh(option, default = "String::from(\"redis://127.0.0.1:6379\")")]
+    redis_addr: String,
 
     /// path of the scripts that will be executed
     #[argh(option)]
@@ -79,93 +78,46 @@ fn main() -> anyhow::Result<()> {
         .canonicalize()?;
 
     let rt = tokio::runtime::Runtime::new()?;
-    rt.block_on(async_main(&cmd.rmq_addr, &script_dir))?;
+    rt.block_on(async_main(&cmd.redis_addr, &script_dir))?;
 
     Ok(())
 }
 
-async fn async_main(rabbitmq_addr: &str, script_dir: &Path) -> anyhow::Result<()> {
-    info!("Starting RabbitMQ consumer...");
+use redis::Commands;
 
-    let connection = Connection::connect(rabbitmq_addr, ConnectionProperties::default()).await?;
-    let channel = connection.create_channel().await?;
-
-    let exchange_name = "jeeves";
-    channel
-        .exchange_declare(
-            exchange_name,
-            lapin::ExchangeKind::Direct,
-            ExchangeDeclareOptions::default(),
-            FieldTable::default(),
-        )
-        .await?;
-
-    let queue_name = "webhooks";
-    channel
-        .queue_declare(
-            queue_name,
-            QueueDeclareOptions::default(),
-            FieldTable::default(),
-        )
-        .await?;
-
-    channel
-        .queue_bind(
-            queue_name,
-            exchange_name,
-            queue_name,
-            QueueBindOptions::default(),
-            FieldTable::default(),
-        )
-        .await?;
-
-    let mut consumer = channel
-        .basic_consume(
-            queue_name,
-            "actor",
-            BasicConsumeOptions {
-                exclusive: true,
-                ..Default::default()
-            },
-            FieldTable::default(),
-        )
-        .await?;
-
-    let my_span = tracing::error_span!("rmq_loop", queue_name = queue_name.to_string());
+async fn async_main(redis_addr: &str, script_dir: &Path) -> anyhow::Result<()> {
+    let client = redis::Client::open(redis_addr)?;
+    let mut con = client.get_connection()?;
+    let queue_name = "job_queue";
+    let my_span = tracing::error_span!("job_loop", queue_name = queue_name.to_string());
     let _span_guard = my_span.enter();
-    while let Some(delivery) = consumer.next().await {
-        let delivery = delivery?;
-        let body = str::from_utf8(&delivery.data)?;
-        let project = match get_project_from_message(body).await {
-            Ok(project) => {
-                info!("handled");
-                delivery.ack(BasicAckOptions::default()).await?;
-                project
+
+    loop {
+        // Blocking pop from the queue
+        let job: Option<String> = con.brpop("job_queue", 0.0)?;
+
+        match job {
+            Some(job) => {
+                let project = match get_project_from_message(&job).await {
+                    Ok(project) => {
+                        info!("parsed");
+                        project
+                    }
+                    Err(e) => {
+                        event!(Level::ERROR, ?e, "parsing failed");
+                        continue;
+                    }
+                };
+                if let Err(e) = run_script(script_dir, &project) {
+                    event!(Level::ERROR, ?e, "script failed");
+                    continue;
+                }
             }
-            Err(e) => {
-                event!(Level::ERROR, "parsing message {e}");
-                delivery
-                    .nack(BasicNackOptions {
-                        multiple: false,
-                        requeue: false,
-                    })
-                    .await?;
-                continue;
+            None => {
+                info!("No jobs left in the queue.");
             }
-        };
-        if let Err(e) = run_script(script_dir, &project) {
-            event!(Level::ERROR, "running script {e}");
-            delivery
-                .nack(BasicNackOptions {
-                    multiple: false,
-                    requeue: false,
-                })
-                .await?;
-            continue;
         }
     }
-
-    Ok(())
 }
 
 #[instrument]

@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-lapin = { version = "3.7.2", features = ["rustls"] }
 tokio = { version = "1.0", features = ["full"] }
 serde_json = "1.0"
 sentry = { version = "0.45", features = ["backtrace", "contexts", "debug-images", "httpdate", "panic", "rustls", "sentry-backtrace", "sentry-panic", "sentry-tracing", "tokio", "tracing", "reqwest"], default-features = false }
@@ -14,5 +13,5 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-log = "0.2"
 argh = "0.1.13"
 sentry-anyhow = "0.45.0"
-futures-lite = "2.6.1"
 sentry-tracing = { version = "0.45.0", features = ["backtrace", "logs"] }
+redis = { version = "0.32.7", default-features = false, features = ["keep-alive"] }
