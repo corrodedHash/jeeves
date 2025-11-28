@@ -93,12 +93,11 @@ async fn async_main(redis_addr: &str, script_dir: &Path) -> anyhow::Result<()> {
     let _span_guard = my_span.enter();
 
     loop {
-        // Blocking pop from the queue
-        let job: Option<String> = con.brpop("job_queue", 0.0)?;
+        let job: Option<Vec<String>> = con.brpop("job_queue", 0.0)?;
 
         match job {
             Some(job) => {
-                let project = match get_project_from_message(&job).await {
+                let project = match get_project_from_message(&job[1]).await {
                     Ok(project) => {
                         info!("parsed");
                         project
